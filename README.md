@@ -62,11 +62,9 @@ A B C D
 
 # Результат юнит-тестов программы
 
-![2024-11-04 (1)](https://github.com/user-attachments/assets/76deffe3-ca8c-4a83-b3cb-0c4561b7a890)
-![2024-11-04 (2)](https://github.com/user-attachments/assets/9e76e7aa-569a-4b88-bd36-b1fc553c926b)
-![2024-11-04 (3)](https://github.com/user-attachments/assets/7797fde4-db48-4920-9ade-4fd977cfe6df)
+
 
 # Результат работы программы
 
-![output](https://github.com/user-attachments/assets/202902ff-37ca-4a9b-befc-e1cdeed688d5)
+
 
