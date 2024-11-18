@@ -17,16 +17,28 @@ class Assembler:
             for line in file:
                 parts = line.strip().split()
                 instruction = int(parts[0])
+
                 if instruction == 201:
-                    # Загрузка константы
+                    # Загрузка константы (3 значения)
                     A, B, C = int(parts[0]), int(parts[1]), int(parts[2])
-                    binary_data.append(struct.pack('I', (A << 24) | (B << 8) | C))
-                    log_data.append({"A": A, "B": B, "C": C})
+
+                    # Проверяем, что A, B, C в пределах диапазона 0-65535
+                    if 0 <= A <= 65535 and 0 <= B <= 65535 and 0 <= C <= 65535:
+                        binary_data.append(struct.pack('>3H', A, B, C))  # 3 коротких целых числа (по 2 байта)
+                        log_data.append({"A": A, "B": B, "C": C})
+                    else:
+                        print(f"Ошибка: A={A}, B={B}, C={C} выходят за пределы диапазона 0-65535")
+
                 elif instruction == 57:
-                    # Чтение значения из памяти
+                    # Чтение значения из памяти (3 значения)
                     A, B, C = int(parts[0]), int(parts[1]), int(parts[2])
-                    binary_data.append(struct.pack('>H', (A << 8) | (B << 4) | C))
-                    log_data.append({"A": A, "B": B, "C": C})
+
+                    # Проверяем, что A, B, C в пределах диапазона 0-65535
+                    if 0 <= A <= 65535 and 0 <= B <= 65535 and 0 <= C <= 65535:
+                        binary_data.append(struct.pack('>3H', A, B, C))  # 3 коротких целых числа (по 2 байта)
+                        log_data.append({"A": A, "B": B, "C": C})
+                    else:
+                        print(f"Ошибка: A={A}, B={B}, C={C} выходят за пределы диапазона 0-65535")
 
         # Запись в бинарный файл
         with open(self.binary_file, 'wb') as file:
