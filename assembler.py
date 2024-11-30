@@ -38,14 +38,14 @@ def assemble(input_file, output_file, log_file):
             c = int(args[1])  # Константа
             instruction = (opcode & 0xFF) | ((b & 0x1F) << 8) | ((c & 0x1FFFF) << 13)
             binary_data.append(struct.pack('<I', instruction))
-            log_data.append({'A': opcode, 'B': b, 'C': c})
+            log_data.append({'A': opcode, 'B': b, 'C': c, 'D': ''})
 
         elif cmd in {"READ_MEM", "WRITE_MEM"}:
             b = int(args[0])  # Адрес регистра
             c = int(args[1])  # Адрес памяти
             instruction = (opcode & 0xFF) | ((b & 0x1F) << 8) | ((c & 0x1F) << 13)
             binary_data.append(struct.pack('<I', instruction)[:3])
-            log_data.append({'A': opcode, 'B': b, 'C': c})
+            log_data.append({'A': opcode, 'B': b, 'C': c, 'D': ''})
 
         elif cmd == "LOGICAL_RSHIFT":
             b = int(args[0])  # Адрес памяти
@@ -62,7 +62,8 @@ def assemble(input_file, output_file, log_file):
 
     # Логирование
     with open(log_file, 'w', newline='') as logfile:
-        writer = csv.DictWriter(logfile, fieldnames=log_data[0].keys())
+        fieldnames = ['A', 'B', 'C', 'D']
+        writer = csv.DictWriter(logfile, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(log_data)
 
