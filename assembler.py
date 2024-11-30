@@ -2,61 +2,99 @@ import struct
 import csv
 import sys
 
+# Словарь для преобразования команд
+COMMANDS = {
+    "LOAD_CONST": 201,
+    "READ_MEM": 57,
+    "WRITE_MEM": 27,
+    "LOGICAL_RSHIFT": 113,
+}
 
-class Assembler:
-    def __init__(self, source_file, binary_file, log_file):
-        self.source_file = source_file
-        self.binary_file = binary_file
-        self.log_file = log_file
 
-    def assemble(self):
-        binary_data = []
-        log_data = []
+def validate_range(value, bits, field_name):
+    """Проверяет, что значение помещается в указанное количество бит."""
+    max_value = (1 << bits) - 1
+    if not (0 <= value <= max_value):
+        raise ValueError(f"{field_name}={value} превышает диапазон ({bits} бит).")
 
-        with open(self.source_file, 'r') as file:
-            for line in file:
-                parts = line.strip().split()
-                instruction = int(parts[0])
 
-                if instruction == 201:
-                    # Загрузка константы (3 значения)
-                    A, B, C = int(parts[0]), int(parts[1]), int(parts[2])
+def to_3_bytes(instruction):
+    """Преобразует 32-битное число в 3 байта."""
+    return instruction.to_bytes(3, byteorder='little')
 
-                    # Проверяем, что A, B, C в пределах диапазона 0-65535
-                    if 0 <= A <= 65535 and 0 <= B <= 65535 and 0 <= C <= 65535:
-                        binary_data.append(struct.pack('>3H', A, B, C))  # 3 коротких целых числа (по 2 байта)
-                        log_data.append({"A": A, "B": B, "C": C})
-                    else:
-                        print(f"Ошибка: A={A}, B={B}, C={C} выходят за пределы диапазона 0-65535")
 
-                elif instruction == 57:
-                    # Чтение значения из памяти (3 значения)
-                    A, B, C = int(parts[0]), int(parts[1]), int(parts[2])
+def assemble(input_file, output_file, log_file):
+    binary_data = []
+    log_data = []
 
-                    # Проверяем, что A, B, C в пределах диапазона 0-65535
-                    if 0 <= A <= 65535 and 0 <= B <= 65535 and 0 <= C <= 65535:
-                        binary_data.append(struct.pack('>3H', A, B, C))  # 3 коротких целых числа (по 2 байта)
-                        log_data.append({"A": A, "B": B, "C": C})
-                    else:
-                        print(f"Ошибка: A={A}, B={B}, C={C} выходят за пределы диапазона 0-65535")
+    with open(input_file, 'r') as infile:
+        lines = infile.readlines()
 
-        # Запись в бинарный файл
-        with open(self.binary_file, 'wb') as file:
-            for data in binary_data:
-                file.write(data)
+    for line_num, line in enumerate(lines, start=1):
+        line = line.strip()
 
-        # Запись в лог-файл
-        with open(self.log_file, 'w', newline='') as csvfile:
-            fieldnames = ['A', 'B', 'C']
-            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in log_data:
-                writer.writerow(row)
+        # Игнорируем комментарии и пустые строки
+        if not line or line.startswith('#'):
+            continue
+
+        try:
+            parts = line.split()
+            cmd, *args = parts
+            opcode = COMMANDS.get(cmd)
+
+            if opcode is None:
+                raise ValueError(f"Неизвестная команда: {cmd}")
+
+            if cmd == "LOAD_CONST":
+                b = int(args[0])  # Адрес регистра
+                c = int(args[1])  # Константа
+                validate_range(b, 5, "B")
+                validate_range(c, 19, "C")
+                instruction = (opcode & 0xFF) | ((b & 0x1F) << 8) | ((c & 0x7FFFF) << 13)
+                binary_data.append(struct.pack('<I', instruction))
+                log_data.append({'A': opcode, 'B': b, 'C': c, 'D': ''})
+
+            elif cmd in {"READ_MEM", "WRITE_MEM"}:
+                b = int(args[0])  # Адрес регистра
+                c = int(args[1])  # Адрес памяти
+                validate_range(b, 5, "B")
+                validate_range(c, 5, "C")
+                instruction = (opcode & 0xFF) | ((b & 0x1F) << 8) | ((c & 0x1F) << 13)
+                binary_data.append(to_3_bytes(instruction))
+                log_data.append({'A': opcode, 'B': b, 'C': c, 'D': ''})
+
+            elif cmd == "LOGICAL_RSHIFT":
+                b = int(args[0])  # Адрес памяти
+                c = int(args[1])  # Адрес регистра (второй операнд)
+                d = int(args[2])  # Адрес регистра (первый операнд)
+                validate_range(b, 14, "B")
+                validate_range(c, 5, "C")
+                validate_range(d, 5, "D")
+                instruction = (opcode & 0xFF) | ((b & 0x3FFF) << 8) | ((c & 0x1F) << 22) | ((d & 0x1F) << 27)
+                binary_data.append(struct.pack('<I', instruction))
+                log_data.append({'A': opcode, 'B': b, 'C': c, 'D': d})
+
+            else:
+                raise ValueError(f"Некорректное количество аргументов для команды {cmd}")
+
+        except Exception as e:
+            print(f"Ошибка в строке {line_num}: {line}")
+            print(f"Причина: {e}")
+            sys.exit(1)
+
+    with open(output_file, 'wb') as outfile:
+        for data in binary_data:
+            outfile.write(data)
+
+    with open(log_file, 'w', newline='') as logfile:
+        fieldnames = ['A', 'B', 'C', 'D']
+        writer = csv.DictWriter(logfile, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(log_data)
 
 
 if __name__ == "__main__":
-    source_file = sys.argv[1]
-    binary_file = sys.argv[2]
-    log_file = sys.argv[3]
-    assembler = Assembler(source_file, binary_file, log_file)
-    assembler.assemble()
+    if len(sys.argv) < 4:
+        print("Использование: python assembler.py <входной_файл> <выходной_файл> <лог_файл>")
+        sys.exit(1)
+    assemble(sys.argv[1], sys.argv[2], sys.argv[3])
