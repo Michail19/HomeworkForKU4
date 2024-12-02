@@ -20,9 +20,8 @@ def assemble(input_file, output_file, log_file):
         lines = infile.readlines()
 
     for line in lines:
-        # Пропуск пустых строк
         line = line.strip()
-        if not line:
+        if not line:  # Пропуск пустых строк
             continue
 
         parts = line.split()
@@ -36,7 +35,7 @@ def assemble(input_file, output_file, log_file):
         if cmd == "LOAD_CONST":
             b = int(args[0])  # Адрес регистра
             c = int(args[1])  # Константа
-            instruction = (opcode & 0xFF) | ((b & 0x1F) << 8) | ((c & 0x1FFFF) << 13)
+            instruction = (opcode & 0xFF) | ((b & 0x1F) << 8) | ((c & 0x7FFFF) << 13)
             binary_data.append(struct.pack('<I', instruction))
             log_data.append({'A': opcode, 'B': b, 'C': c, 'D': ''})
 
@@ -57,10 +56,9 @@ def assemble(input_file, output_file, log_file):
 
     # Сохранение в бинарный файл
     with open(output_file, 'wb') as outfile:
-        for data in binary_data:
-            outfile.write(data)
+        outfile.writelines(binary_data)
 
-    # Логирование
+    # Сохранение лога
     with open(log_file, 'w', newline='') as logfile:
         fieldnames = ['A', 'B', 'C', 'D']
         writer = csv.DictWriter(logfile, fieldnames=fieldnames)

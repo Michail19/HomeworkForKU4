@@ -5,7 +5,7 @@ import sys
 
 def execute(input_file, output_file, memory_range):
     # Инициализация памяти и регистров
-    memory = [0] * 1024  # Условный размер памяти УВМ
+    memory = [0] * 1024  # Условный размер памяти
     registers = [0] * 32
 
     # Диапазон памяти для результата
@@ -21,27 +21,31 @@ def execute(input_file, output_file, memory_range):
         opcode = binary_data[pc]  # Первый байт - это A
 
         if opcode == 201:  # LOAD_CONST (4 байта)
-            b = binary_data[pc] & 0x1F
-            c = struct.unpack('<H', binary_data[pc + 1:pc + 3])[0] >> 5
+            raw_instr = struct.unpack('<I', binary_data[pc:pc + 4])[0]
+            b = (raw_instr >> 8) & 0x1F
+            c = (raw_instr >> 13) & 0x7FFFF
             registers[b] = c
             pc += 4
 
         elif opcode == 57:  # READ_MEM (3 байта)
-            b = binary_data[pc] & 0x1F
-            c = (binary_data[pc + 1] >> 5) & 0x1F
+            raw_instr = struct.unpack('<I', binary_data[pc:pc + 3] + b'\x00')[0]
+            b = (raw_instr >> 8) & 0x1F
+            c = (raw_instr >> 13) & 0x1F
             registers[b] = memory[registers[c]]
             pc += 3
 
         elif opcode == 27:  # WRITE_MEM (3 байта)
-            b = binary_data[pc] & 0x1F
-            c = (binary_data[pc + 1] >> 5) & 0x1F
+            raw_instr = struct.unpack('<I', binary_data[pc:pc + 3] + b'\x00')[0]
+            b = (raw_instr >> 8) & 0x1F
+            c = (raw_instr >> 13) & 0x1F
             memory[registers[b]] = registers[c]
             pc += 3
 
         elif opcode == 113:  # LOGICAL_RSHIFT (4 байта)
-            b = struct.unpack('<H', binary_data[pc:pc + 2])[0] & 0x3FFF
-            c = (binary_data[pc + 2] >> 5) & 0x1F
-            d = (binary_data[pc + 2] >> 27) & 0x1F
+            raw_instr = struct.unpack('<I', binary_data[pc:pc + 4])[0]
+            b = (raw_instr >> 8) & 0x3FFF
+            c = (raw_instr >> 22) & 0x1F
+            d = (raw_instr >> 27) & 0x1F
             memory[b] = registers[d] >> registers[c]
             pc += 4
 
