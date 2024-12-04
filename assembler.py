@@ -2,52 +2,70 @@ import csv
 import struct
 import sys
 
-# Определяем формат инструкций УВМ
-COMMANDS = {
-    "LOAD_CONST": 201,  # Загрузка константы
-    "LOAD_MEM": 57,  # Чтение из памяти
-    "STORE_MEM": 27,  # Запись в память
-    "SHIFT_RIGHT": 113,  # Побитовый логический сдвиг вправо
-}
 
+def assemble(input_file, binary_file, log_file):
+    # Описание инструкций УВМ
+    instruction_formats = {
+        "LOAD_CONST": (201, "BHI", 7),  # 7 байт: A (1), B (2), C (4)
+        "READ_MEM": (57, "BBH", 4),  # 4 байта: A (1), B (1), C (2)
+        "WRITE_MEM": (27, "BBH", 4),  # 4 байта: A (1), B (1), C (2)
+        "LOGIC_RSHIFT": (113, "BHHH", 8),  # 8 байт: A (1), B (2), C (2), D (2)
+    }
 
-def assemble_instruction(command, args):
-    """Сборка инструкции в бинарный формат."""
-    opcode = COMMANDS.get(command)
-    if opcode is None:
-        raise ValueError(f"Неизвестная команда: {command}")
+    binary_data = bytearray()
+    log_entries = []
 
-    if command == "LOAD_CONST":
-        b, c = map(int, args)
-        return struct.pack("<BHB", opcode, b, c), {"A": opcode, "B": b, "C": c}
-    elif command in {"LOAD_MEM", "STORE_MEM"}:
-        b, c = map(int, args)
-        return struct.pack("<BH", opcode, (c << 8) | b), {"A": opcode, "B": b, "C": c}
-    elif command == "SHIFT_RIGHT":
-        b, c, d = map(int, args)
-        return struct.pack("<BHI", opcode, b, (d << 5) | c), {"A": opcode, "B": b, "C": c, "D": d}
-    else:
-        raise ValueError(f"Неизвестная команда: {command}")
-
-
-def assemble(input_file, output_file, log_file):
-    """Ассемблер для УВМ."""
-    with open(input_file, "r") as infile, open(output_file, "wb") as outfile, open(log_file, "w",
-                                                                                   newline="") as log_csv:
-        log_writer = csv.DictWriter(log_csv, fieldnames=["A", "B", "C", "D"])
-        log_writer.writeheader()
-
-        for line in infile:
+    # Чтение и обработка исходного файла
+    with open(input_file, "r") as source:
+        for index, line in enumerate(source):
             line = line.strip()
-            if not line or line.startswith("#"):  # Игнорируем комментарии и пустые строки
+            if not line:
                 continue
+
             parts = line.split()
-            command, args = parts[0], parts[1:]
-            binary, log_entry = assemble_instruction(command, args)
-            outfile.write(binary)
-            log_writer.writerow(log_entry)
+            command = parts[0]
+            operands = list(map(int, parts[1:]))
+
+            if command not in instruction_formats:
+                raise ValueError(f"Неизвестная команда: {command} в строке {index + 1}")
+
+            opcode, fmt, size = instruction_formats[command]
+
+            # Проверка длины операндов
+            required_operands = len(fmt) - 1  # Один слот занимает opcode
+            if len(operands) != required_operands:
+                raise ValueError(
+                    f"Неверное число операндов для {command}: ожидалось {required_operands}, получено {len(operands)}")
+
+            # Упаковка команды
+            packed_command = struct.pack(fmt, opcode, *operands)
+            binary_data.extend(packed_command)
+
+            # Логирование
+            log_entries.append({
+                "строка": index + 1,
+                "команда": command,
+                "операнды": operands,
+                "размер": size
+            })
+
+    # Запись бинарного файла
+    with open(binary_file, "wb") as binary_out:
+        binary_out.write(binary_data)
+
+    # Запись лог-файла
+    with open(log_file, "w", newline="") as log_out:
+        writer = csv.DictWriter(log_out, fieldnames=["строка", "команда", "операнды", "размер"])
+        writer.writeheader()
+        writer.writerows(log_entries)
+
+    print("Ассемблирование завершено.")
 
 
 if __name__ == "__main__":
-    # Пример вызова: python assembler.py input.txt output.bin log.csv
-    assemble(sys.argv[1], sys.argv[2], sys.argv[3])
+    if len(sys.argv) != 4:
+        print("Использование: python assembler.py input_file binary_file log_file")
+        sys.exit(1)
+
+    input_file, binary_file, log_file = sys.argv[1:4]
+    assemble(input_file, binary_file, log_file)
