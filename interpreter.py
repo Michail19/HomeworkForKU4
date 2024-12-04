@@ -1,68 +1,59 @@
-import struct
 import csv
+import struct
 import sys
 
 
-def execute(input_file, output_file, memory_range):
-    # Инициализация памяти и регистров
-    memory = [0] * 1024  # Условный размер памяти
-    registers = [0] * 32
+class VirtualMachine:
+    def __init__(self):
+        self.memory = [0] * 1024  # Простая память УВМ
+        self.registers = [0] * 32  # Регистр УВМ
 
-    # Диапазон памяти для результата
-    mem_start, mem_end = map(int, memory_range.split('-'))
-
-    # Чтение бинарного файла
-    with open(input_file, 'rb') as infile:
-        binary_data = infile.read()
-
-    pc = 0  # Указатель команд
-
-    while pc < len(binary_data):
-        opcode = binary_data[pc]  # Первый байт - это A
-
-        if opcode == 201:  # LOAD_CONST (4 байта)
-            raw_instr = struct.unpack('<I', binary_data[pc:pc + 4])[0]
-            b = (raw_instr >> 8) & 0x1F
-            c = (raw_instr >> 13) & 0x7FFFF
-            registers[b] = c
-            pc += 4
-
-        elif opcode == 57:  # READ_MEM (3 байта)
-            raw_instr = struct.unpack('<I', binary_data[pc:pc + 3] + b'\x00')[0]
-            b = (raw_instr >> 8) & 0x1F
-            c = (raw_instr >> 13) & 0x1F
-            registers[b] = memory[registers[c]]
-            pc += 3
-
-        elif opcode == 27:  # WRITE_MEM (3 байта)
-            raw_instr = struct.unpack('<I', binary_data[pc:pc + 3] + b'\x00')[0]
-            b = (raw_instr >> 8) & 0x1F
-            c = (raw_instr >> 13) & 0x1F
-            memory[registers[b]] = registers[c]
-            pc += 3
-
-        elif opcode == 113:  # LOGICAL_RSHIFT (4 байта)
-            raw_instr = struct.unpack('<I', binary_data[pc:pc + 4])[0]
-            b = (raw_instr >> 8) & 0x3FFF
-            c = (raw_instr >> 22) & 0x1F
-            d = (raw_instr >> 27) & 0x1F
-            memory[b] = registers[d] >> registers[c]
-            pc += 4
-
+    def execute_instruction(self, opcode, *args):
+        """Выполнение одной инструкции."""
+        if opcode == 201:  # LOAD_CONST
+            b, c = args
+            self.registers[b] = c
+        elif opcode == 57:  # LOAD_MEM
+            b, c = args
+            addr = self.registers[c]
+            self.registers[b] = self.memory[addr]
+        elif opcode == 27:  # STORE_MEM
+            b, c = args
+            addr = self.registers[b]
+            self.memory[addr] = self.registers[c]
+        elif opcode == 113:  # SHIFT_RIGHT
+            b, c, d = args
+            self.memory[b] = self.registers[d] >> self.registers[c]
         else:
-            print(f"Неизвестная команда: {opcode}")
-            break
+            raise ValueError(f"Неизвестный опкод: {opcode}")
 
-    # Сохранение результата в CSV
-    with open(output_file, 'w', newline='') as outfile:
-        writer = csv.writer(outfile)
-        writer.writerow(['Address', 'Value'])
-        for addr in range(mem_start, mem_end + 1):
-            writer.writerow([addr, memory[addr]])
+    def run(self, input_file, output_file, memory_range):
+        """Выполнение программы."""
+        with open(input_file, "rb") as infile:
+            while chunk := infile.read(4):  # Читаем инструкцию
+                opcode = chunk[0]
+                if opcode == 201:
+                    b, c = struct.unpack("<HB", chunk[1:])
+                    self.execute_instruction(opcode, b, c)
+                elif opcode in {57, 27}:
+                    combined = struct.unpack("<H", chunk[1:])[0]
+                    b, c = combined & 0x1F, combined >> 8
+                    self.execute_instruction(opcode, b, c)
+                elif opcode == 113:
+                    b, c, d = struct.unpack("<HI", chunk[1:])
+                    c, d = c & 0x1F, c >> 5
+                    self.execute_instruction(opcode, b, c, d)
+
+        # Записываем результаты в CSV
+        start, end = map(int, memory_range.split(":"))
+        with open(output_file, "w", newline="") as outfile:
+            writer = csv.writer(outfile)
+            writer.writerow(["Address", "Value"])
+            for i in range(start, end + 1):
+                writer.writerow([i, self.memory[i]])
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4:
-        print("Использование: python interpreter.py <бинарный_файл> <результат_файл> <диапазон>")
-        sys.exit(1)
-    execute(sys.argv[1], sys.argv[2], sys.argv[3])
+    # Пример вызова: python interpreter.py program.bin result.csv 0:10
+    vm = VirtualMachine()
+    vm.run(sys.argv[1], sys.argv[2], sys.argv[3])
