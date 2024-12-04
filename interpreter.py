@@ -1,104 +1,101 @@
 import struct
-import csv
 import sys
+import csv
 
-# Размер памяти виртуальной машины
-MEMORY_SIZE = 4096
+MEMORY_SIZE = 1024
 REGISTER_COUNT = 32
 
-# Константы для команд
-COMMANDS = {
-    201: "LOAD_CONST",
-    57: "READ_MEM",
-    27: "WRITE_MEM",
-    113: "LOGIC_RSHIFT",
-}
 
-
-def interpret(binary_file, output_file, memory_range):
+def interpret(binary_file, result_file, memory_range):
     # Инициализация памяти и регистров
     memory = [0] * MEMORY_SIZE
     registers = [0] * REGISTER_COUNT
 
     # Чтение бинарного файла
-    with open(binary_file, 'rb') as infile:
-        binary_data = infile.read()
+    with open(binary_file, 'rb') as f:
+        binary_data = f.read()
 
-    # Разбор команд
-    pc = 0  # Счётчик команд (программный счётчик)
+    pc = 0  # Счётчик команд (Program Counter)
     while pc < len(binary_data):
         opcode = binary_data[pc]
-        cmd_name = COMMANDS.get(opcode)
+        cmd_name = None
 
-        if cmd_name == "LOAD_CONST":
+        if opcode == 201:  # LOAD_CONST
+            cmd_name = "LOAD_CONST"
             instruction = struct.unpack_from('<I', binary_data, pc)[0]
             pc += 4
 
-            b = (instruction >> 8) & 0x1F
-            c = (instruction >> 13) & 0x7FFFF
-            registers[b] = c
+            b = (instruction >> 8) & 0x1F  # Адрес регистра
+            c = instruction >> 13  # Константа
 
-        elif cmd_name == "READ_MEM":
-            instruction = struct.unpack_from('<I', binary_data + b'\x00', pc)[0]
-            pc += 3
-
-            b = (instruction >> 8) & 0x1F
-            c = (instruction >> 13) & 0x1F
-            address = registers[c]
-            if address < MEMORY_SIZE:
-                registers[b] = memory[address]
+            if b < REGISTER_COUNT:
+                registers[b] = c
             else:
-                print(f"Ошибка: выход за границы памяти ({address})")
+                print(f"Ошибка: некорректный адрес регистра B={b}")
                 break
 
-        elif cmd_name == "WRITE_MEM":
-            instruction = struct.unpack_from('<I', binary_data + b'\x00', pc)[0]
+        elif opcode == 57:  # READ_MEM
+            cmd_name = "READ_MEM"
+            instruction = struct.unpack_from('<I', binary_data, pc)[0]
             pc += 3
+            b = (instruction >> 8) & 0x1F  # Адрес регистра
+            c = (instruction >> 13) & 0x1F  # Адрес памяти (регистр)
+            if b < REGISTER_COUNT and c < REGISTER_COUNT:
+                address = registers[c]
+                if 0 <= address < MEMORY_SIZE:
+                    registers[b] = memory[address]
+                else:
+                    print(f"Ошибка: выход за границы памяти при чтении (Адрес={address})")
+                    break
 
-            b = (instruction >> 8) & 0x1F
-            c = (instruction >> 13) & 0x1F
-            address = registers[b]
-            if address < MEMORY_SIZE:
-                memory[address] = registers[c]
-            else:
-                print(f"Ошибка: выход за границы памяти ({address})")
-                break
+        elif opcode == 27:  # WRITE_MEM
+            cmd_name = "WRITE_MEM"
+            instruction = struct.unpack_from('<I', binary_data, pc)[0]
+            pc += 3
+            b = (instruction >> 8) & 0x1F  # Адрес памяти (регистр)
+            c = (instruction >> 13) & 0x1F  # Значение (регистр)
+            if b < REGISTER_COUNT and c < REGISTER_COUNT:
+                address = registers[b]
+                if 0 <= address < MEMORY_SIZE:
+                    memory[address] = registers[c]
+                else:
+                    print(f"Ошибка: выход за границы памяти при записи (Адрес={address})")
+                    break
 
-        elif cmd_name == "LOGIC_RSHIFT":
+        elif opcode == 113:  # LOGIC_RSHIFT
+            cmd_name = "LOGIC_RSHIFT"
             instruction = struct.unpack_from('<I', binary_data, pc)[0]
             pc += 4
             b = (instruction >> 8) & 0x3FFF  # Адрес памяти
-            c = (instruction >> 22) & 0x1F  # Адрес регистра (второй операнд)
-            d = (instruction >> 27) & 0x1F  # Адрес регистра (первый операнд)
+            c = (instruction >> 22) & 0x1F  # Адрес регистра (сдвиг)
+            d = (instruction >> 27) & 0x1F  # Адрес регистра (значение)
             if b < MEMORY_SIZE and d < REGISTER_COUNT and c < REGISTER_COUNT:
                 shift_amount = registers[c]
-                if shift_amount >= 0:  # Сдвиг на 0 бит допустим
+                if shift_amount >= 0:  # Проверка корректности сдвига
                     memory[b] = registers[d] >> shift_amount
                 else:
                     print(f"Ошибка: недопустимый сдвиг ({shift_amount})")
                     break
-            else:
-                print(f"Ошибка: выход за границы памяти или регистров (B={b}, C={c}, D={d})")
-                break
 
         else:
-            print(f"Неизвестная команда: {opcode}")
+            print(f"Неизвестный код операции: {opcode} по адресу {pc}")
             break
 
-    # Сохранение указанного диапазона памяти в файл
+        # Отладочный вывод
+        print(f"Команда: {cmd_name}, Регистры: {registers[:8]}, Память: {memory[:8]}")
+
+    # Сохранение результата
     start, end = map(int, memory_range.split('-'))
-    if start >= 0 and end < MEMORY_SIZE and start <= end:
-        with open(output_file, 'w', newline='') as outfile:
-            writer = csv.writer(outfile)
-            writer.writerow(["Address", "Value"])
-            for addr in range(start, end + 1):
-                writer.writerow([addr, memory[addr]])
-    else:
-        print(f"Ошибка: неверный диапазон памяти ({memory_range})")
+    with open(result_file, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["Address", "Value"])
+        for i in range(start, end + 1):
+            writer.writerow([i, memory[i]])
 
 
 if __name__ == "__main__":
-    if len(sys.argv) < 4:
+    if len(sys.argv) != 4:
         print("Использование: python interpreter.py <бинарный_файл> <файл_результата> <диапазон_памяти>")
         sys.exit(1)
+
     interpret(sys.argv[1], sys.argv[2], sys.argv[3])

@@ -1,0 +1,72 @@
+# Загружаем первый вектор в память
+LOAD_CONST 0 8       # Устанавливаем адрес для первого элемента вектора 1
+LOAD_CONST 1 15      # Элемент 1 вектора 1
+WRITE_MEM 0 1
+LOAD_CONST 1 30      # Элемент 2 вектора 1
+WRITE_MEM 1 1
+LOAD_CONST 1 45      # Элемент 3 вектора 1
+WRITE_MEM 2 1
+LOAD_CONST 1 60      # Элемент 4 вектора 1
+WRITE_MEM 3 1
+LOAD_CONST 1 75      # Элемент 5 вектора 1
+WRITE_MEM 4 1
+LOAD_CONST 1 90      # Элемент 6 вектора 1
+WRITE_MEM 5 1
+LOAD_CONST 1 105     # Элемент 7 вектора 1
+WRITE_MEM 6 1
+LOAD_CONST 1 120     # Элемент 8 вектора 1
+WRITE_MEM 7 1
+
+# Загружаем второй вектор в память
+LOAD_CONST 0 16      # Устанавливаем адрес для первого элемента вектора 2
+LOAD_CONST 1 1       # Элемент 1 вектора 2 (сдвиг на 1 бит)
+WRITE_MEM 8 1
+LOAD_CONST 1 2       # Элемент 2 вектора 2 (сдвиг на 2 бита)
+WRITE_MEM 9 1
+LOAD_CONST 1 3       # Элемент 3 вектора 2 (сдвиг на 3 бита)
+WRITE_MEM 10 1
+LOAD_CONST 1 4       # Элемент 4 вектора 2 (сдвиг на 4 бита)
+WRITE_MEM 11 1
+LOAD_CONST 1 5       # Элемент 5 вектора 2 (сдвиг на 5 бит)
+WRITE_MEM 12 1
+LOAD_CONST 1 6       # Элемент 6 вектора 2 (сдвиг на 6 бит)
+WRITE_MEM 13 1
+LOAD_CONST 1 7       # Элемент 7 вектора 2 (сдвиг на 7 бит)
+WRITE_MEM 14 1
+LOAD_CONST 1 8       # Элемент 8 вектора 2 (сдвиг на 8 бит)
+WRITE_MEM 15 1
+
+# Вычисляем побитовый логический сдвиг вправо поэлементно и сохраняем результат
+LOAD_CONST 0 24      # Устанавливаем адрес для сохранения результирующего вектора
+READ_MEM 1 0         # Читаем элемент из вектора 1
+READ_MEM 2 8         # Читаем сдвиг из вектора 2
+LOGIC_RSHIFT 3 1 2   # Логический сдвиг вправо
+WRITE_MEM 16 3       # Сохраняем результат в память
+READ_MEM 1 1
+READ_MEM 2 9
+LOGIC_RSHIFT 3 1 2
+WRITE_MEM 17 3
+READ_MEM 1 2
+READ_MEM 2 10
+LOGIC_RSHIFT 3 1 2
+WRITE_MEM 18 3
+READ_MEM 1 3
+READ_MEM 2 11
+LOGIC_RSHIFT 3 1 2
+WRITE_MEM 19 3
+READ_MEM 1 4
+READ_MEM 2 12
+LOGIC_RSHIFT 3 1 2
+WRITE_MEM 20 3
+READ_MEM 1 5
+READ_MEM 2 13
+LOGIC_RSHIFT 3 1 2
+WRITE_MEM 21 3
+READ_MEM 1 6
+READ_MEM 2 14
+LOGIC_RSHIFT 3 1 2
+WRITE_MEM 22 3
+READ_MEM 1 7
+READ_MEM 2 15
+LOGIC_RSHIFT 3 1 2
+WRITE_MEM 23 3
