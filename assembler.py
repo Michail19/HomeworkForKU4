@@ -1,71 +1,73 @@
-import csv
 import struct
+import csv
 import sys
 
+# Словарь для преобразования команд
+COMMANDS = {
+    "LOAD_CONST": 201,
+    "READ_MEM": 57,
+    "WRITE_MEM": 27,
+    "LOGIC_RSHIFT": 113,
+}
 
-def assemble(input_file, binary_file, log_file):
-    # Описание инструкций УВМ
-    instruction_formats = {
-        "LOAD_CONST": (201, "BHI", 7),  # 7 байт: A (1), B (2), C (4)
-        "READ_MEM": (57, "BBH", 4),  # 4 байта: A (1), B (1), C (2)
-        "WRITE_MEM": (27, "BBH", 4),  # 4 байта: A (1), B (1), C (2)
-        "LOGIC_RSHIFT": (113, "BHHH", 8),  # 8 байт: A (1), B (2), C (2), D (2)
-    }
 
-    binary_data = bytearray()
-    log_entries = []
+def assemble(input_file, output_file, log_file):
+    binary_data = []
+    log_data = []
 
-    # Чтение и обработка исходного файла
-    with open(input_file, "r") as source:
-        for index, line in enumerate(source):
-            line = line.strip()
-            if not line:
-                continue
+    # Чтение текстового файла с программой
+    with open(input_file, 'r') as infile:
+        lines = infile.readlines()
 
-            parts = line.split()
-            command = parts[0]
-            operands = list(map(int, parts[1:]))
+    for line in lines:
+        line = line.strip()
+        if not line:  # Пропуск пустых строк
+            continue
 
-            if command not in instruction_formats:
-                raise ValueError(f"Неизвестная команда: {command} в строке {index + 1}")
+        parts = line.split()
+        cmd, *args = parts
+        opcode = COMMANDS.get(cmd)
 
-            opcode, fmt, size = instruction_formats[command]
+        if opcode is None:
+            print(f"Неизвестная команда: {cmd}")
+            continue
 
-            # Проверка длины операндов
-            required_operands = len(fmt) - 1  # Один слот занимает opcode
-            if len(operands) != required_operands:
-                raise ValueError(
-                    f"Неверное число операндов для {command}: ожидалось {required_operands}, получено {len(operands)}")
+        if cmd == "LOAD_CONST":
+            b = int(args[0])  # Адрес регистра
+            c = int(args[1])  # Константа
+            instruction = (opcode & 0xFF) | ((b & 0x1F) << 8) | ((c & 0x7FFFF) << 13)
+            binary_data.append(struct.pack('<I', instruction))
+            log_data.append({'A': opcode, 'B': b, 'C': c, 'D': ''})
 
-            # Упаковка команды
-            packed_command = struct.pack(fmt, opcode, *operands)
-            binary_data.extend(packed_command)
+        elif cmd in {"READ_MEM", "WRITE_MEM"}:
+            b = int(args[0])  # Адрес регистра
+            c = int(args[1])  # Адрес памяти
+            instruction = (opcode & 0xFF) | ((b & 0x1F) << 8) | ((c & 0x1F) << 13)
+            binary_data.append(struct.pack('<I', instruction)[:3])
+            log_data.append({'A': opcode, 'B': b, 'C': c, 'D': ''})
 
-            # Логирование
-            log_entries.append({
-                "строка": index + 1,
-                "команда": command,
-                "операнды": operands,
-                "размер": size
-            })
+        elif cmd == "LOGIC_RSHIFT":
+            b = int(args[0])  # Адрес памяти
+            c = int(args[1])  # Адрес регистра (второй операнд)
+            d = int(args[2])  # Адрес регистра (первый операнд)
+            instruction = (opcode & 0xFF) | ((b & 0x3FFF) << 8) | ((c & 0x1F) << 22) | ((d & 0x1F) << 27)
+            binary_data.append(struct.pack('<I', instruction))
+            log_data.append({'A': opcode, 'B': b, 'C': c, 'D': d})
 
-    # Запись бинарного файла
-    with open(binary_file, "wb") as binary_out:
-        binary_out.write(binary_data)
+    # Сохранение в бинарный файл
+    with open(output_file, 'wb') as outfile:
+        outfile.writelines(binary_data)
 
-    # Запись лог-файла
-    with open(log_file, "w", newline="") as log_out:
-        writer = csv.DictWriter(log_out, fieldnames=["строка", "команда", "операнды", "размер"])
+    # Сохранение лога
+    with open(log_file, 'w', newline='') as logfile:
+        fieldnames = ['A', 'B', 'C', 'D']
+        writer = csv.DictWriter(logfile, fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(log_entries)
-
-    print("Ассемблирование завершено.")
+        writer.writerows(log_data)
 
 
 if __name__ == "__main__":
-    if len(sys.argv) != 4:
-        print("Использование: python assembler.py input_file binary_file log_file")
+    if len(sys.argv) < 4:
+        print("Использование: python assembler.py <входной_файл> <выходной_файл> <лог_файл>")
         sys.exit(1)
-
-    input_file, binary_file, log_file = sys.argv[1:4]
-    assemble(input_file, binary_file, log_file)
+    assemble(sys.argv[1], sys.argv[2], sys.argv[3])

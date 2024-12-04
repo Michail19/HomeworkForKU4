@@ -1,82 +1,65 @@
-import csv
 import struct
 import sys
+import csv
 
+# Размеры памяти УВМ и регистров
+MEMORY_SIZE = 1024
+REGISTER_COUNT = 32
 
-def interpret(binary_file, output_file, memory_range):
-    memory = [0] * memory_range  # Инициализация памяти
-    pc = 0  # Program counter
+def execute(binary_file, result_file, memory_range):
+    # Память и регистры УВМ
+    memory = [0] * MEMORY_SIZE
+    registers = [0] * REGISTER_COUNT
 
     # Загрузка бинарного файла
-    with open(binary_file, "rb") as binary:
-        program = binary.read()
+    with open(binary_file, 'rb') as infile:
+        instructions = infile.read()
 
-    while pc < len(program):
-        opcode = program[pc]
-        print(f"Интерпретируем код операции: {opcode} по адресу {pc}")  # Для отладки
-
+    # Разбор команд
+    pc = 0  # Программный счетчик
+    while pc < len(instructions):
+        opcode = instructions[pc]  # Первый байт — код операции
         if opcode == 201:  # LOAD_CONST
-            b, c = struct.unpack_from("HI", program, pc + 1)
-            print(f"b={b}, c={c}")  # Для отладки
-
-            if b >= memory_range:
-                b = b % memory_range  # Корректируем значение, если оно выходит за пределы
-
-            if b >= memory_range:
-                raise IndexError(f"Индекс b={b} выходит за пределы памяти")
-            memory[b] = c
-            pc += 7
+            inst = struct.unpack_from('<I', instructions, pc)[0]
+            b = (inst >> 8) & 0x1F
+            c = (inst >> 13) & 0x7FFFF
+            registers[b] = c
+            pc += 4
         elif opcode == 57:  # READ_MEM
-            b, c = struct.unpack_from("BB", program, pc + 1)
-            print(f"b={b}, c={c}")  # Для отладки
-            if b >= memory_range:
-                b = b % memory_range  # Корректируем значение, если оно выходит за пределы
-            if c >= memory_range:
-                c = c % memory_range  # Корректируем значение, если оно выходит за пределы
-            memory[b] = memory[memory[c]]
-            pc += 4
+            inst = struct.unpack_from('<I', instructions, pc)[0]
+            b = (inst >> 8) & 0x1F
+            c = (inst >> 13) & 0x1F
+            registers[b] = memory[registers[c]]
+            pc += 3
         elif opcode == 27:  # WRITE_MEM
-            b, c = struct.unpack_from("BB", program, pc + 1)
-            print(f"b={b}, c={c}")  # Для отладки
-            if b >= memory_range:
-                b = b % memory_range  # Корректируем значение, если оно выходит за пределы
-            if c >= memory_range:
-                c = c % memory_range  # Корректируем значение, если оно выходит за пределы
-            memory[memory[b]] = memory[c]
-            pc += 4
+            inst = struct.unpack_from('<I', instructions, pc)[0]
+            b = (inst >> 8) & 0x1F
+            c = (inst >> 13) & 0x1F
+            memory[registers[b]] = registers[c]
+            pc += 3
         elif opcode == 113:  # LOGIC_RSHIFT
-            b, c, d = struct.unpack_from("HHH", program, pc + 1)
-            print(f"b={b}, c={c}, d={d}")  # Для отладки
-            if b >= memory_range or c >= memory_range or d >= memory_range:
-                b = b % memory_range  # Корректируем значение, если оно выходит за пределы
-                c = c % memory_range  # Корректируем значение, если оно выходит за пределы
-                d = d % memory_range  # Корректируем значение, если оно выходит за пределы
-            memory[b] = memory[d] >> memory[c]
-            pc += 8
+            inst = struct.unpack_from('<I', instructions, pc)[0]
+            b = (inst >> 8) & 0x3FFF
+            c = (inst >> 22) & 0x1F
+            d = (inst >> 27) & 0x1F
+            memory[b] = registers[d] >> registers[c]
+            pc += 4
         else:
-            # Неизвестный код операции
-            print(f"Неизвестный код операции: {opcode} по адресу {pc}")  # Отладочный вывод
-            raise ValueError(f"Неизвестная команда: {opcode} по адресу {pc}")
+            print(f"Неизвестная команда: {opcode}")
+            break
 
-    # Запись результата
-    with open(output_file, "w", newline="") as result:
-        writer = csv.writer(result)
-        for i, value in enumerate(memory):
-            writer.writerow([i, value])
-
-    print("Интерпретация завершена.")
+    # Сохранение результатов в CSV
+    start, end = map(int, memory_range.split(':'))
+    with open(result_file, 'w', newline='') as outfile:
+        writer = csv.writer(outfile)
+        writer.writerow(["Address", "Value"])
+        for addr in range(start, end + 1):
+            writer.writerow([addr, memory[addr]])
 
 
 if __name__ == "__main__":
-    with open('program.bin', 'rb') as f:
-        byte = f.read(1)
-        while byte:
-            print(ord(byte))  # Выведет значение каждого байта в программе
-            byte = f.read(1)
-
-    if len(sys.argv) != 4:
-        print("Использование: python interpreter.py binary_file output_file memory_range")
+    if len(sys.argv) < 4:
+        print("Использование: python interpreter.py <бинарный_файл> <файл_результата> <диапазон_памяти>")
+        print("Пример диапазона памяти: 0:15")
         sys.exit(1)
-
-    binary_file, output_file, memory_range = sys.argv[1:4]
-    interpret(binary_file, output_file, int(memory_range))
+    execute(sys.argv[1], sys.argv[2], sys.argv[3])
