@@ -94,6 +94,9 @@ def interpret(binary_file, result_file, memory_range):
 
 
 if __name__ == "__main__":
+    with open("program1.bin", "rb") as f:
+        print(list(f.read()))
+
     if len(sys.argv) != 4:
         print("Использование: python interpreter.py <бинарный_файл> <файл_результата> <диапазон_памяти>")
         sys.exit(1)
