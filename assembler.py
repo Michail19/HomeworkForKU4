@@ -54,6 +54,8 @@ def assemble(input_file, output_file, log_file):
             binary_data.append(struct.pack('<I', instruction))
             log_data.append({'A': opcode, 'B': b, 'C': c, 'D': d})
 
+    binary_data.append(b'\x00')
+
     # Сохранение в бинарный файл
     with open(output_file, 'wb') as outfile:
         outfile.writelines(binary_data)

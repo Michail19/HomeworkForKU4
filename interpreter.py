@@ -16,7 +16,7 @@ def interpret(binary_file, result_file, memory_range):
         binary_data = f.read()
 
     pc = 0  # Счётчик команд (Program Counter)
-    while pc < len(binary_data):
+    while pc < len(binary_data) - 1:
         opcode = binary_data[pc]
         cmd_name = None
 
@@ -102,3 +102,4 @@ if __name__ == "__main__":
         sys.exit(1)
 
     interpret(sys.argv[1], sys.argv[2], sys.argv[3])
+    # interpret('program1.bin', 'result1.csv', '0-31')
