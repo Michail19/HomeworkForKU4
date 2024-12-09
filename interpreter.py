@@ -82,7 +82,7 @@ def interpret(binary_file, result_file, memory_range):
             break
 
         # Отладочный вывод
-        print(f"Команда: {cmd_name}, Регистры: {registers[:8]}, Память: {memory[:8]}")
+        # print(f"Команда: {cmd_name}, Регистры: {registers[:8]}, Память: {memory[:8]}")
 
     # Сохранение результата
     start, end = map(int, memory_range.split('-'))
@@ -94,8 +94,8 @@ def interpret(binary_file, result_file, memory_range):
 
 
 if __name__ == "__main__":
-    with open("program1.bin", "rb") as f:
-        print(list(f.read()))
+    # with open("program1.bin", "rb") as f:
+    #    print(list(f.read()))
 
     if len(sys.argv) != 4:
         print("Использование: python interpreter.py <бинарный_файл> <файл_результата> <диапазон_памяти>")
