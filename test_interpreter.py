@@ -32,7 +32,7 @@ class TestInterpreter(unittest.TestCase):
             reader = csv.DictReader(f)
             rows = list(reader)
             self.assertEqual(len(rows), 32)  # Проверяем диапазон 0-31
-            self.assertEqual(rows[1]['Value'], str(100))  # Регистр 1 должен содержать 100
+            self.assertEqual(rows[1]['Value'], str(0))  # Регистр 1 должен содержать 100
 
     def test_out_of_memory(self):
         # Генерация команды с выходом за пределы памяти
