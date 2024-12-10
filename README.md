@@ -110,14 +110,3 @@ python -m unittest test_assembler.py test_interpreter.py
 
 ![2024-12-09 (1)](https://github.com/user-attachments/assets/13676c1f-7251-497a-8ca7-66a6a2aa978d)
 
-program.txt:
-
-![2024-12-09 (2)](https://github.com/user-attachments/assets/01c24ecb-49c2-4f9b-ac34-50f161244cea)
-
-program_log.csv:
-
-![2024-12-09 (4)](https://github.com/user-attachments/assets/6b1656b6-0a96-4167-beac-ec0a24c051a8)
-
-result.csv:
-
-![2024-12-09 (3)](https://github.com/user-attachments/assets/7d5faf6d-b469-4ce5-a064-10d30fea2961)
